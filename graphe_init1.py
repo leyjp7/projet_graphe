@@ -38,6 +38,13 @@ def trouver_ens_aretes(G, n):
           ens.append(a)
     return ens
 
+def gen_ens_couleurs(n):
+    C = []
+    m = random.randint(0,n)
+    for i in range(0,m):
+        C.append(i+1)
+    return C
+  
 print(n)
 G = generer_graphe(n)
 print(G)
