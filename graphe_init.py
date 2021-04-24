@@ -13,9 +13,12 @@ def generer_graphe(n):
   g = []
   for i in range(0, n):
       ligne = []
-      for i in range(0, n):
+      for j in range(0, n):
          b = randint(0, 1)
-         ligne.append(b)
+         if j != i:
+          ligne.append(b)
+         else:
+          ligne.append(0)
       g.append(ligne)
   return g
   
