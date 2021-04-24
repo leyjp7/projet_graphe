@@ -29,8 +29,19 @@ def generer_graphe(n):
 #      g[i][j] = b
 #  return g
 
+def trouver_ens_aretes(G, n):
+  ens = []
+  for i in range(0, n):
+    for j in range(0, n):
+      if G[i][j] = 1:
+        a = (i,j)
+        ens.append(a)
+   return ens
+
 print(n)
-g = generer_graphe_blanc(n)
-print(g)
+G = generer_graphe_blanc(n)
+print(G)
+aretes = trouver_ens_aretes(G, n)
+print(aretes)
 #G = definition_graphe(n, g)
 #print(G)
