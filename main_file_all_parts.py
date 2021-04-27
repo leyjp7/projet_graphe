@@ -230,6 +230,24 @@ def fnc_en_dimacs(formule, n, m): # fonction qui convertis une formule FNC comme
         resultat += ' 0 \n'
     return resultat
 
+
+def fnc_en_pycosat(formule, n, m):
+  
+    dic = dic_vars_enumere(n, m)
+    f = []
+    for clause in formule:
+      li = []
+      for lit in clause:
+        if lit[0] == '-':
+          l = dic[lit[1:]]
+          li.append(-l)
+        else:
+          l = dic[lit]
+          li.append(l)
+      f.append(li)
+    return f
+          
+
 def write_file_dimacs(formule, *N):
     (n, V, C) = N
     f = open(f"graphe_{n}_{V}_{C}.txt", "x")
@@ -284,20 +302,23 @@ def reconvertir_de_dimacs(liste, dic):
     
     
 def solution(formule):
-    sol = pycosat.solve(formule)
-    print('solution : ',sol)
+    sols = []
+    for sol in pycosat.itersolve(formule):
+      sols.append(sol)
+      print(sol)
+    return sols
   
 ###########################################################################################
 # PARTIE TESTS
 ###########################################################################################
 
-nr = randint(0, 10)
-n = 5
+n = randint(0, 5)
+#n = 5
 G = generer_graphe(n)
 G1 = generer_graphe_connu(n)
-A = trouver_ens_aretes(G1, n)
+A = trouver_ens_aretes(G, n)
 #C = gen_ens_couleurs(n)
-C = [i+1 for i in range(n)]
+C = [i+1 for i in range(randint(0, 5))]
 c = n
 V = len(A)
 N = (n, V, c) # N for 'network' (= reseau), ce 3-uplet definie le graphe G en termes tres generaux
@@ -310,7 +331,7 @@ d = remplir_dic(A, coords, dic) #dictionnaire des coordonnes des sommets
 
 couleurs = {1 : 'red' , 2 : 'green', 3 : 'blue', 4 : 'cyan', 5 : 'magenta', 6 : 'yellow', 7 : 'orange', 8 : 'deeppink', 9 : 'lime', 10 : 'maroon'}
 
-formule = formule_depuis_graphe(G1, n, C)
+formule = formule_depuis_graphe(G, n, C)
 
 def formule_int(forumle):
     f = []
@@ -321,15 +342,16 @@ def formule_int(forumle):
       f.append(c)
     return f
   
-formuleint = formule_int(formule)
+#formuleint = formule_int(formule)
+formuleint = fnc_en_pycosat(formule, n, len(C))
 dic_var_dimac = dic_vars_enumere(n, c) # dictionnaire des variables et leurs chiffres DIMACS
 
-dimacs = fnc_en_dimacs(formule, n, c) # string de format DIMACS
+#dimacs = fnc_en_dimacs(formule, n, c) # string de format DIMACS
 
 print('n : ', n)
 print('\n')
 print('\n')
-print('matrice d adjacents : \n', G1)
+print('matrice d adjacents : \n', G)
 print('\n')
 print('\n')
 print('ens d aretes : ', A)
@@ -358,7 +380,9 @@ print('\n')
 print('\n')
 print('\n')
 print(formuleint)
-solution(formuleint)
+sol = solution(formuleint)
+#solution_convertie = reconvertir_de_dimacs(sol, dic_var_dimac)
+##print(solution_convertie)
 
 ##write_file_dimacs(dimacs, *N)
 ##read_file_dimacs(*N)
