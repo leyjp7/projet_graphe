@@ -1,13 +1,18 @@
 from random import *
 import math
 import turtle
-
+import pycosat
+import subprocess
 
 s = turtle.getscreen()
-t = turtle.Turtle(visible=False)
-t.speed(0)
+turtle.hideturtle()
+tu = turtle.Turtle(visible=False)
+to = turtle.Turtle(visible=False)
+wr = turtle.Turtle(visible = False)
 
-
+wr.speed(0)
+tu.speed(0)
+to.speed(0)
 
 pi = math.pi
 
@@ -22,7 +27,7 @@ pi = math.pi
 ###########################################################################################
 
 def generer_graphe(n): # fonction qui genere quasi-aleatoirement un graphe quelconque, 
-  g = []              # represente par une matrice d'adjacents
+  g = []               # represente par une matrice d'adjacents
   for i in range(n):
       ligne = []
       for j in range(i):
@@ -31,6 +36,22 @@ def generer_graphe(n): # fonction qui genere quasi-aleatoirement un graphe quelc
          if i!=j:
            b = randint(0, 1)
            ligne.append(b)
+         else:
+           ligne.append(0)
+      
+      g.append(ligne)
+  return g
+
+def generer_graphe_connu(n): # fonction qui genere le graphe qu'on veut, 
+  g = []                     # represente par une matrice d'adjacents
+  for i in range(n):
+      ligne = []
+      for j in range(i):
+         ligne.append(0)
+      for j in range(i, n):
+         if i!=j:
+           #b = randint(0, 1)
+           ligne.append(1)
          else:
            ligne.append(0)
       
@@ -65,6 +86,91 @@ def gen_ens_couleurs(n): #genere un ensemble de 'couleurs' representees par les 
 #        var = ''.join((str(a),str(b)))
 #        return var
 
+
+###########################################################################################          
+#PARTIE DESSIN DU GRAPHE
+###########################################################################################
+
+def coords_sur_circum(r,n): #calcule les coordonnes des sommets sur un plan
+    return [(math.cos(2*pi/n*x)*r,math.sin(2*pi/n*x)*r) for x in range(0,n)]
+  
+def remplir_dic(A, coords, dic):
+  for (l, k) in A:
+      dic[l][0].append(k)
+      dic[k][0].append(l)
+        
+  for i in range(n):
+      dic[i+1][1] = coords[i]
+  return dic
+        
+
+def dessine_sommets(dic, n, r1):
+      r = (r1+20) / (n+1)
+      tu.fillcolor('white')
+      tu.penup()
+      tu.width(4)
+      for i in range(n):
+          (x, y) = dic[i+1][1]
+          tu.goto(x, y)
+          tu.pendown()
+          tu.begin_fill()
+          tu.circle(r)
+          tu.end_fill()
+          tu.penup()
+
+def dessine_sommets_col(dic1, dic2, n, r1):
+      r = (r1+20) / (n+1)
+      tu.penup()
+      tu.width(4)
+      for i in range(n):
+          col = dic2[i+1]
+          tu.fillcolor(col)
+          (x, y) = dic[i+1][1]
+          tu.goto(x, y)
+          tu.pendown()
+          tu.begin_fill()
+          tu.circle(r)
+          tu.end_fill()
+          tu.penup()
+
+def dessine_aretes(dic, n, r1):
+      r = (r1+20) / (n+1)
+      to.penup()
+      to.width(3)
+      for i in range(n):
+        
+          (x1, y1) = dic[i+1][1]
+           
+          for j in dic[i+1][0]:
+              (x2, y2) = dic[j][1]
+              to.goto(x1, y1+r)
+              to.pendown()
+              to.goto(x2, y2+r)
+              to.penup()
+
+def dessine_graphe(dic, n, r, c, V):
+   # dessine_sommets(dic, n)
+    wr.penup()
+    wr.setposition(0,200)
+    wr.pendown()
+    wr.write(f"{c}-coloration d'un graphe G a {n} sommets et {V} aretes", False, align ="center", font=("Consolas", 20, "normal"))
+    wr.penup()
+    dessine_aretes(dic, n, r)
+    dessine_sommets(dic, n, r)
+
+def dessine_solution(dic1, dic2, n, r, c, V):
+   # dessine_sommets(dic, n)
+    tu.clear()
+    to.clear()
+    wr.clear()
+    wr.penup()
+    wr.setposition(0,200)
+    wr.pendown()
+    wr.write(f"{c}-coloration d'un graphe G a {n} sommets et {V} aretes : solution", False, align ="center", font=("Consolas", 20, "normal"))
+    wr.penup()
+    dessine_aretes(dic, n, r)
+    dessine_sommets_col(dic1, dic2, n, r)
+
 ###########################################################################################
 # PARTIE FNC ET CONVERSION EN DIMACS
 ###########################################################################################
@@ -95,9 +201,9 @@ def liste_var(n, m): #cree une liste de toute variable possible du probleme, ou 
     return vari
 
 def dic_vars_enumere(n, m): # a chaque variable stockee dans la liste de toute variable possible,
-                            # on lui assigne un chiffre entre 1 et n*m
-                            # pour rendre possible l'interpretation DIMACS. on garde cette information
-    vari = liste_var(n, m)  # dans un dictionnaire
+                            # on lui assigne un chiffre entre 1 et n*m pour rendre possible l'interpretation DIMACS.
+                            # on garde cette information dans un dictionnaire
+    vari = liste_var(n, m)  
     dic = {}
     
     for i in range(n*m):
@@ -111,7 +217,7 @@ def fnc_en_dimacs(formule, n, m): # fonction qui convertis une formule FNC comme
     nb_clauses = len(formule)
     dic = dic_vars_enumere(n, m)
     
-    resultat = f"p cnf {nb_variables} {nb_clauses}\n"
+    resultat = f"c on a {nb_variables} variables et {nb_clauses} clauses \n p cnf {nb_variables} {nb_clauses}\n"
     
     for clause in formule:
         for lit in clause:
@@ -126,92 +232,104 @@ def fnc_en_dimacs(formule, n, m): # fonction qui convertis une formule FNC comme
 
 def write_file_dimacs(formule, *N):
     (n, V, C) = N
-    f = open(f"graphe_({n}-{V}-{C}).tct", "x")
+    f = open(f"graphe_{n}_{V}_{C}.txt", "x")
     f.write(formule)
     f.close()
+    print(f"fichier ecrit : graphe_{n}_{V}_{C}.txt")
 
 def read_file_dimacs(*N):
     (n, V, C) = N
-    f = open(f"graphe_({n}-{V}-{C}).tct", "r")
+    f = open(f"graphe_{n}_{V}_{C}.txt", "r")
+    print(f.read())
+    f.close()
+
+def read_solution(*N):
+    (n , V, C) = N
+    f = open(f"solution_{n}_{V}_{C}.txt", "r")
     print(f.read())
     f.close()
     
+def parse_solution(*N):
+    (n , V, C) = N
+    f = open(f"solution_{n}_{V}_{C}.txt", "r")
+    l = f.read()
+    f.close()
+    m = l[4:-3]
+    parse = m.split(' ')
+    return parse
+
+def interpret_parse(liste):
+    pos_vari = []
+    for var in liste:
+        if var[0] != '-':
+          pos_vari.append(var)
+    return pos_vari
   
-###########################################################################################          
-#PARTIE DESSIN DU GRAPHE
-###########################################################################################
+def trouver_cle(v, dic):
+    for var, vardim in dic.items():
+      if vardim == int(v):
+        return var
+        
+def reconvertir_de_dimacs(liste, dic):
+    solution_convertie = []
+    for var in liste:
+      v = trouver_cle(var, dic)
+      solution_convertie.append(v)
+    return solution_convertie
+      
+    
 
-def coords_sur_circum(r,n): #calcule les coordonnes des sommets sur un plan
-    return [(math.cos(2*pi/n*x)*r,math.sin(2*pi/n*x)*r) for x in range(0,n)]
+####def write_solution(*N)
+##    (n, V, C) = N
+    
+    
+def solution(formule):
+    sol = pycosat.solve(formule)
+    print('solution : ',sol)
   
-def remplir_dic(A, coords, dic):
-  for (l, k) in A:
-      dic[l][0].append(k)
-      dic[k][0].append(l)
-        
-  for i in range(n):
-      dic[i+1][1] = coords[i]
-  return dic
-        
-
-def dessine_sommets(dic, n):
-      r = 80 / (n+1)
-      t.fillcolor('black')
-      t.penup()
-      for i in range(n):
-          (x, y) = dic[i+1][1]
-          t.goto(x, y)
-          t.pendown()
-          t.begin_fill()
-          t.circle(r)
-          t.end_fill()
-          t.penup()
-
-def dessine_aretes(dic, n):
-      r = 80 / (n+1)
-      t.penup()
-      for i in range(n):
-        
-          (x1, y1) = dic[i+1][1]
-           
-          for j in dic[i+1][0]:
-              (x2, y2) = dic[j][1]
-              t.goto(x1, y1+r)
-              t.pendown()
-              t.goto(x2, y2+r)
-              t.penup()
-
-def dessine_graphe(dic, n):
-    dessine_sommets(dic, n)
-    dessine_aretes(dic, n)
-              
-
-
 ###########################################################################################
 # PARTIE TESTS
 ###########################################################################################
 
-n = randint(0, 10)
+nr = randint(0, 10)
+n = 5
 G = generer_graphe(n)
-A = trouver_ens_aretes(G, n)
-C = gen_ens_couleurs(n)
+G1 = generer_graphe_connu(n)
+A = trouver_ens_aretes(G1, n)
+#C = gen_ens_couleurs(n)
+C = [i+1 for i in range(n)]
+c = n
 V = len(A)
-N = (n, V, C) # N for 'network' (= reseau), ce 3-uplet definie le graphe G en termes tres generaux
+N = (n, V, c) # N for 'network' (= reseau), ce 3-uplet definie le graphe G en termes tres generaux
               # de n sommets, V aretes et C couleurs. on utiliesera ce 3-uplet pour la creation des fichiers.
-              
+
+r = 100              
 dic = { i+1 : [[],0] for i in range(n) }
-coords = coords_sur_circum(70, n)
+coords = coords_sur_circum(r, n)
 d = remplir_dic(A, coords, dic) #dictionnaire des coordonnes des sommets
 
-formule = formule_depuis_graphe(G, n, C)
-dic2 = dic_vars_enumere(n, len(C)) # dictionnaire des variables et leurs chiffres DIMACS
+couleurs = {1 : 'red' , 2 : 'green', 3 : 'blue', 4 : 'cyan', 5 : 'magenta', 6 : 'yellow', 7 : 'orange', 8 : 'deeppink', 9 : 'lime', 10 : 'maroon'}
 
-dimacs = fnc_en_dimacs(formule, n, len(C)) # string de format DIMACS
+formule = formule_depuis_graphe(G1, n, C)
+
+def formule_int(forumle):
+    f = []
+    for i in formule:
+      c = []
+      for j in i:
+        c.append(int(j))
+      f.append(c)
+    return f
+  
+formuleint = formule_int(formule)
+dic_var_dimac = dic_vars_enumere(n, c) # dictionnaire des variables et leurs chiffres DIMACS
+
+dimacs = fnc_en_dimacs(formule, n, c) # string de format DIMACS
 
 print('n : ', n)
 print('\n')
 print('\n')
-print('matrice d adjacents : ', G)
+print('matrice d adjacents : \n', G1)
 print('\n')
 print('\n')
 print('ens d aretes : ', A)
@@ -222,7 +340,7 @@ print('dico ',d)
 print('\n')
 
 print(coords)
-dessine_graphe(d, n)
+dessine_graphe(d, n, r, c, V)
 print('\n')
 print('\n')
 print('\n')
@@ -230,7 +348,7 @@ print('\n')
 print('ens de couleurs : ',C)
 print('\n')
 
-print('dic2 : ', dic2)
+print('dic de var en forme dimacs : ', dic_var_dimac)
 print('\n')
 print('\n')
 print('\n')
@@ -239,7 +357,17 @@ print('formule en fnc representee : ',formule)
 print('\n')
 print('\n')
 print('\n')
+print(formuleint)
+solution(formuleint)
 
-write_file_dimacs(dimacs, *N)
-read_file_dimacs(*N)
+##write_file_dimacs(dimacs, *N)
+##read_file_dimacs(*N)
+##read_solution(*N)
+##parse = parse_solution(*N)
+##print(interpret_parse(parse))
+##parse2 = interpret_parse(parse)
+##solution_convertie = reconvertir_de_dimacs(parse2, dic_var_dimac)
+##print(solution_convertie)
+
+#dessine_solution(d, couleurs, n, r, c, V)
 
