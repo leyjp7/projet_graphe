@@ -118,12 +118,13 @@ def dessine_sommets(dic, n, r1):
           tu.end_fill()
           tu.penup()
 
-def dessine_sommets_col(dic1, dic2, n, r1):
+def dessine_sommets_col(dic1, dic2, n, r1, sol):
       r = (r1+20) / (n+1)
       tu.penup()
       tu.width(4)
       for i in range(n):
-          col = dic2[i+1]
+          chf = sol[i+1]
+          col = dic2[chf]
           tu.fillcolor(col)
           (x, y) = dic[i+1][1]
           tu.goto(x, y)
@@ -158,7 +159,21 @@ def dessine_graphe(dic, n, r, c, V):
     dessine_aretes(dic, n, r)
     dessine_sommets(dic, n, r)
 
-def dessine_solution(dic1, dic2, n, r, c, V):
+def implement_dic_solution(sol):
+    dic = {}
+    for var in sol:
+      dic[int(var[0])] = int(var[1])
+    return dic
+
+def dessine_echec(n, c, V):
+    wr.clear()
+    wr.penup()
+    wr.setposition(0,200)
+    wr.pendown()
+    wr.write(f"{c}-coloration d'un graphe G a {n} sommets et {V} aretes : pas de solution", False, align ="center", font=("Consolas", 20, "normal"))
+    wr.penup()
+
+def dessine_solution(dic1, dic2, n, r, c, V, sol):
    # dessine_sommets(dic, n)
     tu.clear()
     to.clear()
@@ -169,23 +184,41 @@ def dessine_solution(dic1, dic2, n, r, c, V):
     wr.write(f"{c}-coloration d'un graphe G a {n} sommets et {V} aretes : solution", False, align ="center", font=("Consolas", 20, "normal"))
     wr.penup()
     dessine_aretes(dic, n, r)
-    dessine_sommets_col(dic1, dic2, n, r)
+    dessine_sommets_col(dic1, dic2, n, r, sol)
 
 ###########################################################################################
 # PARTIE FNC ET CONVERSION EN DIMACS
 ###########################################################################################
 
+def produit_cartesien(E):  # fonction qui genere un produit cartesien d'un ensemble,
+    ExE = []               # sans couples de la forme (a, a), ou a est un elem. de l'ens.
+    for e1 in E:
+      for e2 in E:
+        if e1 != e2:
+          couple = (e1, e2)
+          ExE.append(couple)
+    return ExE
+
 def formule_depuis_graphe(G, n, C):
     aretes = trouver_ens_aretes(G, n)
+    CxC = produit_cartesien(C)
     fnc = []
-    for j in range(len(C)):
-            clause1 = [''.join((str(i+1), str(j+1))) for i in range(n)]
+    for j in C:
+            clause1 = [''.join((str(i+1), str(j))) for i in range(n)]
             fnc.append(clause1)
             for couple in aretes:
                 l = couple[0]
                 k = couple[1]
-                clause2 = [''.join((str(-l), str(j+1))), ''.join((str(-k), str(j+1)))] 
+                clause2 = [''.join((str(-l), str(j))), ''.join((str(-k), str(j)))] 
                 fnc.append(clause2)
+                
+    for s in range(1, n+1):
+        for pair in CxC:
+          c1 = pair[0]
+          c2 = pair[1]
+          clause3 = [''.join((str(-s), str(c1))), ''.join((str(-s), str(c2)))]
+          fnc.append(clause3)
+        
     return fnc
 
 def liste_var(n, m): #cree une liste de toute variable possible du probleme, ou 41 signifie que 
@@ -276,6 +309,17 @@ def parse_solution(*N):
     parse = m.split(' ')
     return parse
 
+def extraire_solutions(sol, n):
+    sols = []
+    for s in sol:
+      inter = []
+      for var in s:
+        if var > 0:
+          inter.append(var)
+      if len(inter) == n:
+        sols.append(inter)
+    return sols
+
 def interpret_parse(liste):
     pos_vari = []
     for var in liste:
@@ -285,8 +329,11 @@ def interpret_parse(liste):
   
 def trouver_cle(v, dic):
     for var, vardim in dic.items():
-      if vardim == int(v):
-        return var
+      if type(v) == int:
+        if vardim == int(v):
+          return var
+      elif vardim == v:
+          return var
         
 def reconvertir_de_dimacs(liste, dic):
     solution_convertie = []
@@ -294,8 +341,8 @@ def reconvertir_de_dimacs(liste, dic):
       v = trouver_cle(var, dic)
       solution_convertie.append(v)
     return solution_convertie
-      
-    
+
+
 
 ####def write_solution(*N)
 ##    (n, V, C) = N
@@ -305,21 +352,21 @@ def solution(formule):
     sols = []
     for sol in pycosat.itersolve(formule):
       sols.append(sol)
-      print(sol)
+      #print(sol)
     return sols
   
 ###########################################################################################
 # PARTIE TESTS
 ###########################################################################################
 
-n = randint(0, 5)
+n = randint(0, 10)
 #n = 5
 G = generer_graphe(n)
 G1 = generer_graphe_connu(n)
 A = trouver_ens_aretes(G, n)
 #C = gen_ens_couleurs(n)
 C = [i+1 for i in range(randint(0, 5))]
-c = n
+c = len(C)
 V = len(A)
 N = (n, V, c) # N for 'network' (= reseau), ce 3-uplet definie le graphe G en termes tres generaux
               # de n sommets, V aretes et C couleurs. on utiliesera ce 3-uplet pour la creation des fichiers.
@@ -344,9 +391,9 @@ def formule_int(forumle):
   
 #formuleint = formule_int(formule)
 formuleint = fnc_en_pycosat(formule, n, len(C))
-dic_var_dimac = dic_vars_enumere(n, c) # dictionnaire des variables et leurs chiffres DIMACS
+dic_var_enum = dic_vars_enumere(n, c) # dictionnaire des variables et leurs chiffres DIMACS
 
-#dimacs = fnc_en_dimacs(formule, n, c) # string de format DIMACS
+dimacs = fnc_en_dimacs(formule, n, c) # string de format DIMACS
 
 print('n : ', n)
 print('\n')
@@ -370,7 +417,7 @@ print('\n')
 print('ens de couleurs : ',C)
 print('\n')
 
-print('dic de var en forme dimacs : ', dic_var_dimac)
+print('dic de var en forme dimacs : ', dic_var_enum)
 print('\n')
 print('\n')
 print('\n')
@@ -381,17 +428,29 @@ print('\n')
 print('\n')
 print(formuleint)
 sol = solution(formuleint)
-#solution_convertie = reconvertir_de_dimacs(sol, dic_var_dimac)
-##print(solution_convertie)
+sols = extraire_solutions(sol, n)
+#print(sols)
 
-##write_file_dimacs(dimacs, *N)
+solution_convertie = [reconvertir_de_dimacs(sol, dic_var_enum) for sol in sols ]
+#print(solution_convertie)
+
+if len(solution_convertie) > 0:
+  dic_sol = implement_dic_solution(solution_convertie[0])
+  print(dic_sol)
+  dessine_solution(d, couleurs, n, r, c, V, dic_sol)
+else:
+  dessine_echec(n, c, V)
+  
+
+write_file_dimacs(dimacs, *N)
 ##read_file_dimacs(*N)
 ##read_solution(*N)
 ##parse = parse_solution(*N)
 ##print(interpret_parse(parse))
 ##parse2 = interpret_parse(parse)
-##solution_convertie = reconvertir_de_dimacs(parse2, dic_var_dimac)
+##solution_convertie = reconvertir_de_dimacs(parse2, dic_var_enum)
 ##print(solution_convertie)
 
 #dessine_solution(d, couleurs, n, r, c, V)
+
 
